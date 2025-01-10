@@ -26,56 +26,187 @@ class Session:
         while True:
             if self.client is None:
                 self.display.show_nodes()
-                commands = ["connect", "url", "quit", "help"] + [
-                    str(i + 1) for i in range(len(self.display.nodes))
-                ]
+                commands = ["quit", "help", "url"] + [str(i + 1) for i in range(len(self.display.nodes))]
                 command_completer = WordCompleter(commands)
             elif self.current_stock is None:
                 self.display.show_stocks(self.stocks)
-                commands = list(self.commands.shortcuts.keys()) + [
-                    str(i + 1) for i in range(len(self.stocks))
-                ]
+                commands = ["quit", "help", "back", "refresh"] + [str(i + 1) for i in range(len(self.stocks))]
                 command_completer = WordCompleter(commands)
             else:
                 self.display.show_dataset_commands()
-                commands = list(self.commands.shortcuts.keys())
+                commands = ["quit", "help", "back", "next", "prev", "search", "list"] + [str(i + 1) for i in range(20)]
                 command_completer = WordCompleter(commands)
 
             try:
-                # Create a formatted prompt using prompt_toolkit's FormattedText
-                prompt_message = FormattedText(
-                    [
-                        ("class:prompt", "bwilcd> "),
-                    ]
-                )
+                prompt_message = FormattedText([
+                    ("class:prompt", "bwilcd> "),
+                ])
 
                 cmd = prompt(
                     prompt_message,
                     completer=command_completer,
                     style=self.display.get_prompt_style(),
-                ).strip()
+                ).strip().lower()
             except (KeyboardInterrupt, EOFError):
                 break
 
             if not cmd:
                 continue
 
+            if cmd.isdigit():
+                number = int(cmd)
+                try:
+                    if self.client is None:
+                        if 0 < number <= len(self.display.nodes):
+                            node = self.display.nodes[number - 1]
+                            if self.connect_to_node(node["url"]):
+                                self.display.clear_screen()
+                                self.display.show_header()
+                                self.display.show_stocks(self.stocks)
+                        else:
+                            click.echo(click.style("❌ Invalid node number", fg="red", bold=True))
+                    elif self.current_stock is None:
+                        if 0 < number <= len(self.stocks):
+                            self.current_stock = self.stocks[number - 1]
+                            self.current_page = 0
+                            self.current_query = ""
+                            self.display.clear_screen()
+                            self.display.show_header()
+                            click.echo(click.style(f"\n📂 Selected Stock: {self.current_stock['name']}", fg="cyan", bold=True))
+                            self.display.show_datasets(
+                                self.client,
+                                self.current_stock,
+                                self.current_page,
+                                self.page_size,
+                                self.current_query
+                            )
+                        else:
+                            click.echo(click.style("❌ Invalid stock number", fg="red", bold=True))
+                    else:
+                        datasets = self.client.search_datasets(
+                            self.current_stock["uuid"],
+                            query=self.current_query,
+                            page=self.current_page,
+                            size=self.page_size
+                        )
+                        if 0 < number <= len(datasets):
+                            dataset_uuid = datasets[number - 1]["uuid"]
+                            click.echo(click.style("\n⟳ Fetching dataset details...", fg="cyan"))
+                            dataset_info = self.client.get_dataset(dataset_uuid)
+                            self.display.show_dataset_info(dataset_info)
+                            
+                            # Wait for user input before returning to dataset list
+                            click.prompt("\nPress Enter to return to dataset list", default='', show_default=False)
+                            
+                            # Refresh dataset list display
+                            self.display.clear_screen()
+                            self.display.show_header()
+                            click.echo(click.style(f"\n📂 Current Stock: {self.current_stock['name']}", fg="cyan", bold=True))
+                            self.display.show_datasets(
+                                self.client,
+                                self.current_stock,
+                                self.current_page,
+                                self.page_size,
+                                self.current_query
+                            )
+                        else:
+                            click.echo(click.style("❌ Invalid dataset number", fg="red", bold=True))
+                except Exception as e:
+                    click.echo(click.style(f"❌ Error: {str(e)}", fg="red", bold=True))
+                continue
+
             parts = cmd.split(maxsplit=1)
             command = parts[0].lower()
             args = parts[1] if len(parts) > 1 else ""
-
-            # Convert shortcut to full command if it exists
-            command = self.commands.shortcuts.get(command, command)
 
             if command == "quit":
                 break
             elif command == "help":
                 self.display.show_help(self.client, self.current_stock)
-            else:
+            elif command == "back":
+                if self.current_stock is not None:
+                    self.current_stock = None
+                    self.current_page = 0
+                    self.current_query = ""
+                    self.display.clear_screen()
+                    self.display.show_header()
+                    self.display.show_stocks(self.stocks)
+                elif self.client is not None:
+                    self.client = None
+                    self.stocks = []
+                    self.display.clear_screen()
+                    self.display.show_header()
+                    self.display.show_nodes()
+            elif command == "url" and self.client is None:
+                if args:
+                    if not args.startswith(("http://", "https://")):
+                        args = "https://" + args
+                    if self.connect_to_node(args):
+                        self.display.clear_screen()
+                        self.display.show_header()
+                        self.display.show_stocks(self.stocks)
+                else:
+                    click.echo(click.style("❌ Please provide a URL", fg="red", bold=True))
+            elif command == "refresh" and self.current_stock is None:
                 try:
-                    self.handle_command(command, args)
+                    self.stocks = self.client.get_stocks()
+                    self.display.clear_screen()
+                    self.display.show_header()
+                    self.display.show_stocks(self.stocks)
                 except Exception as e:
-                    click.echo(click.style(f"❌ Error: {str(e)}", fg="red", bold=True))
+                    click.echo(click.style(f"❌ Failed to refresh stocks: {str(e)}", fg="red", bold=True))
+            elif command == "search" and self.current_stock is not None:
+                self.current_query = args
+                self.current_page = 0
+                self.display.clear_screen()
+                self.display.show_header()
+                click.echo(click.style(f"\n📂 Current Stock: {self.current_stock['name']}", fg="cyan", bold=True))
+                self.display.show_datasets(
+                    self.client,
+                    self.current_stock,
+                    self.current_page,
+                    self.page_size,
+                    self.current_query
+                )
+            elif command == "list" and self.current_stock is not None:
+                self.current_query = ""
+                self.current_page = 0
+                self.display.clear_screen()
+                self.display.show_header()
+                click.echo(click.style(f"\n📂 Current Stock: {self.current_stock['name']}", fg="cyan", bold=True))
+                self.display.show_datasets(
+                    self.client,
+                    self.current_stock,
+                    self.current_page,
+                    self.page_size,
+                    self.current_query
+                )
+            elif command == "next" and self.current_stock is not None:
+                self.current_page += 1
+                datasets = self.display.show_datasets(
+                    self.client,
+                    self.current_stock,
+                    self.current_page,
+                    self.page_size,
+                    self.current_query
+                )
+                if not datasets:
+                    self.current_page -= 1
+                    click.echo(click.style("\n⚠️  No more datasets", fg="yellow", bold=True))
+            elif command == "prev" and self.current_stock is not None:
+                if self.current_page > 0:
+                    self.current_page -= 1
+                    self.display.show_datasets(
+                        self.client,
+                        self.current_stock,
+                        self.current_page,
+                        self.page_size,
+                        self.current_query
+                    )
+                else:
+                    click.echo(click.style("\n⚠️  Already at first page", fg="yellow", bold=True))
+            else:
+                click.echo(click.style("❌ Invalid command", fg="red", bold=True))
 
     def handle_command(self, command: str, args: str):
         """Handle a command"""
@@ -91,35 +222,19 @@ class Session:
                             self.display.show_header()
                             self.display.show_stocks(self.stocks)
                     else:
-                        click.echo(
-                            click.style(
-                                "❌ Invalid node number",
-                                fg="red",
-                                bold=True,
-                            )
-                        )
+                        click.echo(click.style("❌ Invalid node number", fg="red", bold=True))
                 except ValueError:
-                    click.echo(
-                        click.style(
-                            "❌ Please provide a valid node number",
-                            fg="red",
-                            bold=True,
-                        )
-                    )
+                    click.echo(click.style("❌ Please provide a valid node number", fg="red", bold=True))
             elif command == "url":
                 if args:
+                    if not args.startswith(("http://", "https://")):
+                        args = "https://" + args
                     if self.connect_to_node(args):
                         self.display.clear_screen()
                         self.display.show_header()
                         self.display.show_stocks(self.stocks)
                 else:
-                    click.echo(
-                        click.style(
-                            "❌ Please provide a URL",
-                            fg="red",
-                            bold=True,
-                        )
-                    )
+                    click.echo(click.style("❌ Please provide a URL", fg="red", bold=True))
         elif self.current_stock is None:
             # Handle commands when connected but no stock selected
             if command == "select":
@@ -131,37 +246,18 @@ class Session:
                         self.current_query = ""
                         self.display.clear_screen()
                         self.display.show_header()
-                        click.echo(
-                            click.style(
-                                f"\n📂 Selected Stock: {self.current_stock['name']}",
-                                fg="cyan",
-                                bold=True,
-                            )
-                        )
-                        click.echo("\n⟳ Fetching datasets...")
+                        click.echo(click.style(f"\n📂 Selected Stock: {self.current_stock['name']}", fg="cyan", bold=True))
                         self.display.show_datasets(
                             self.client,
                             self.current_stock,
                             self.current_page,
                             self.page_size,
-                            self.current_query,
+                            self.current_query
                         )
                     else:
-                        click.echo(
-                            click.style(
-                                "❌ Invalid stock number",
-                                fg="red",
-                                bold=True,
-                            )
-                        )
+                        click.echo(click.style("❌ Invalid stock number", fg="red", bold=True))
                 except ValueError:
-                    click.echo(
-                        click.style(
-                            "❌ Please provide a valid stock number",
-                            fg="red",
-                            bold=True,
-                        )
-                    )
+                    click.echo(click.style("❌ Please provide a valid stock number", fg="red", bold=True))
             elif command == "back":
                 self.client = None
                 self.stocks = []
@@ -171,28 +267,106 @@ class Session:
             elif command == "refresh":
                 try:
                     self.stocks = self.client.get_stocks()
-                    self.display.clear_screen()
-                    self.display.show_header()
-                    self.display.show_stocks(self.stocks)
+                    click.echo(click.style("✓ Stocks refreshed successfully", fg="green"))
                 except Exception as e:
-                    click.echo(
-                        click.style(
-                            f"❌ Failed to refresh stocks: {str(e)}",
-                            fg="red",
-                            bold=True,
-                        )
-                    )
+                    click.echo(click.style(f"❌ Error refreshing stocks: {str(e)}", fg="red"))
         else:
             # Handle dataset-related commands
-            if command == "back":
-                self.current_stock = None
-                self.current_page = 0
-                self.current_query = ""
-                self.display.clear_screen()
-                self.display.show_header()
-                self.display.show_stocks(self.stocks)
+            self.handle_dataset_command(command, args)
+
+    def handle_dataset_command(self, command: str, args: str):
+        """Handle dataset-related commands"""
+        if command == "search":
+            self.current_query = args
+            self.current_page = 0
+            self.display.clear_screen()
+            self.display.show_header()
+            click.echo(click.style(f"\n📂 Current Stock: {self.current_stock['name']}", fg="cyan", bold=True))
+            self.display.show_datasets(
+                self.client,
+                self.current_stock,
+                self.current_page,
+                self.page_size,
+                self.current_query
+            )
+        elif command == "list":
+            self.current_query = ""
+            self.current_page = 0
+            self.display.clear_screen()
+            self.display.show_header()
+            click.echo(click.style(f"\n📂 Current Stock: {self.current_stock['name']}", fg="cyan", bold=True))
+            self.display.show_datasets(
+                self.client,
+                self.current_stock,
+                self.current_page,
+                self.page_size,
+                self.current_query
+            )
+        elif command == "next":
+            self.current_page += 1
+            datasets = self.display.show_datasets(
+                self.client,
+                self.current_stock,
+                self.current_page,
+                self.page_size,
+                self.current_query
+            )
+            if not datasets:
+                self.current_page -= 1
+                click.echo(click.style("\n⚠️  No more datasets", fg="yellow", bold=True))
+        elif command == "prev":
+            if self.current_page > 0:
+                self.current_page -= 1
+                self.display.show_datasets(
+                    self.client,
+                    self.current_stock,
+                    self.current_page,
+                    self.page_size,
+                    self.current_query
+                )
             else:
-                self.handle_dataset_command(command, args)
+                click.echo(click.style("\n⚠️  Already at first page", fg="yellow", bold=True))
+        elif command == "view":
+            try:
+                index = int(args) - 1
+                datasets = self.client.search_datasets(
+                    self.current_stock["uuid"],
+                    query=self.current_query,
+                    page=self.current_page,
+                    size=self.page_size
+                )
+                
+                if 0 <= index < len(datasets):
+                    dataset_uuid = datasets[index]["uuid"]
+                    click.echo(click.style("\n⟳ Fetching dataset details...", fg="cyan"))
+                    dataset_info = self.client.get_dataset(dataset_uuid)
+                    self.display.show_dataset_info(dataset_info)
+                    
+                    # Wait for user input before returning to dataset list
+                    click.prompt("\nPress Enter to return to dataset list", default='', show_default=False)
+                    
+                    # Refresh dataset list display
+                    self.display.clear_screen()
+                    self.display.show_header()
+                    click.echo(click.style(f"\n📂 Current Stock: {self.current_stock['name']}", fg="cyan", bold=True))
+                    self.display.show_datasets(
+                        self.client,
+                        self.current_stock,
+                        self.current_page,
+                        self.page_size,
+                        self.current_query
+                    )
+                else:
+                    click.echo(click.style("❌ Invalid dataset number", fg="red", bold=True))
+            except ValueError:
+                click.echo(click.style("❌ Please provide a valid dataset number", fg="red", bold=True))
+        elif command == "back":
+            self.current_stock = None
+            self.current_page = 0
+            self.current_query = ""
+            self.display.clear_screen()
+            self.display.show_header()
+            self.display.show_stocks(self.stocks)
 
     def connect_to_node(self, url: str):
         """Connect to a SODA node"""
@@ -313,70 +487,3 @@ class Session:
             )
         except ValueError:
             click.echo(click.style("❌ Error: Invalid stock number", fg="red"))
-
-    def handle_dataset_command(self, command: str, args: str):
-        """Handle dataset-related commands"""
-        if command == "search":
-            self.current_query = args
-            self.current_page = 0
-            self.display.clear_screen()
-            self.display.show_header()
-            click.echo(
-                click.style(
-                    f"\n📂 Current Stock: {self.current_stock['name']}",
-                    fg="cyan",
-                    bold=True,
-                )
-            )
-            self.display.show_datasets(
-                self.client,
-                self.current_stock,
-                self.current_page,
-                self.page_size,
-                self.current_query,
-            )
-        elif command == "ll":
-            self.current_query = ""
-            self.current_page = 0
-            self.display.clear_screen()
-            self.display.show_header()
-            click.echo(
-                click.style(
-                    f"\n📂 Current Stock: {self.current_stock['name']}",
-                    fg="cyan",
-                    bold=True,
-                )
-            )
-            self.display.show_datasets(
-                self.client,
-                self.current_stock,
-                self.current_page,
-                self.page_size,
-                self.current_query,
-            )
-        elif command == "next":
-            self.current_page += 1
-            datasets = self.display.show_datasets(
-                self.client,
-                self.current_stock,
-                self.current_page,
-                self.page_size,
-                self.current_query,
-            )
-            if not datasets:
-                self.current_page -= 1
-                click.echo(click.style("\n⚠️  No more datasets", fg="yellow", bold=True))
-        elif command == "prev":
-            if self.current_page > 0:
-                self.current_page -= 1
-                self.display.show_datasets(
-                    self.client,
-                    self.current_stock,
-                    self.current_page,
-                    self.page_size,
-                    self.current_query,
-                )
-            else:
-                click.echo(
-                    click.style("\n⚠️  Already at first page", fg="yellow", bold=True)
-                )

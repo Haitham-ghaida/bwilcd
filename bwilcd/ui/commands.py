@@ -17,6 +17,7 @@ class Commands:
             "r": "refresh",
             "d": "dd",
             "c": "connect",
+            "v": "view"
         }
 
     def connect_to_node(self, url: str) -> Optional[SodaClient]:

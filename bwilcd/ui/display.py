@@ -91,7 +91,7 @@ class Display:
 """
         click.echo(click.style(header, fg="cyan", bold=True))
 
-    def show_nodes(self):
+    def show_nodes(self, show_commands: bool = True):
         """Show available ILCD nodes"""
         self.clear_screen()
         self.show_header()
@@ -111,13 +111,14 @@ class Display:
         click.echo(
             "\n" + tabulate(table_data, headers=headers, tablefmt="rounded_grid")
         )
-        click.echo("\n" + click.style("Commands:", fg="cyan", bold=True))
-        click.echo("  " + click.style("number", fg="green") + "         - Connect to a node")
-        click.echo("  " + click.style("url <custom_url>", fg="green") + " - Connect to custom URL")
-        click.echo("  " + click.style("quit", fg="red") + "          - Exit")
-        click.echo("  " + click.style("help", fg="yellow") + "          - Show help")
+        if show_commands:
+            click.echo("\n" + click.style("Commands:", fg="cyan", bold=True))
+            click.echo("  " + click.style("number", fg="green") + "         - Connect to a node")
+            click.echo("  " + click.style("url <custom_url>", fg="green") + " - Connect to custom URL")
+            click.echo("  " + click.style("quit", fg="red") + "          - Exit")
+            click.echo("  " + click.style("help", fg="yellow") + "          - Show help")
 
-    def show_stocks(self, stocks: List[Dict]):
+    def show_stocks(self, stocks: List[Dict], show_commands: bool = True):
         """Show available stocks"""
         headers = [
             click.style("#", fg="cyan", bold=True),
@@ -138,7 +139,8 @@ class Display:
             "\n" + click.style("📦 Available Data Stocks:", fg="cyan", bold=True)
         )
         click.echo(tabulate(table_data, headers=headers, tablefmt="rounded_grid"))
-        self.show_stock_commands()
+        if show_commands:
+            self.show_stock_commands()
 
     def show_stock_commands(self):
         """Show commands for stock view"""
@@ -168,6 +170,7 @@ class Display:
         page: int,
         page_size: int,
         query: str = "",
+        show_commands: bool = True,
     ) -> List[Dict]:
         """Show datasets for a stock with pagination"""
         try:
@@ -238,6 +241,10 @@ class Display:
                     click.echo(
                         click.style("\n❌ No datasets found in this stock", fg="red")
                     )
+
+            if show_commands:
+                self.show_dataset_commands()
+                
             return datasets
         except Exception as e:
             click.echo(
@@ -247,18 +254,6 @@ class Display:
                 err=True,
             )
             return []
-
-    def show_help(self, client: Optional[SodaClient], current_stock: Optional[Dict]):
-        """Show context-sensitive help"""
-        self.clear_screen()
-        self.show_header()
-        
-        if client is None:
-            self.show_nodes()
-        elif current_stock is None:
-            self.show_stock_commands()
-        else:
-            self.show_dataset_commands()
 
     def get_prompt_style(self):
         """Get the style for the prompt"""

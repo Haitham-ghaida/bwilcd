@@ -6,6 +6,7 @@ import click
 import urllib3
 import warnings
 from dataclasses import dataclass
+from functools import lru_cache
 
 # Suppress only the specific InsecureRequestWarning
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -62,6 +63,7 @@ class SodaClient:
         except requests.RequestException:
             return False
 
+    @lru_cache(maxsize=1000)
     def search_datasets(self, stock_uuid: str, query: str = "", page: int = 0, size: int = 20) -> List[Dict]:
         """Search for datasets in a stock"""
         # Calculate start index
@@ -196,6 +198,7 @@ class SodaClient:
         except requests.exceptions.RequestException as e:
             raise Exception(f"Failed to download stock: {str(e)}")
 
+    @lru_cache(maxsize=1000)
     def get_stocks(self) -> List[Dict]:
         """Get list of available data stocks"""
         headers = {"Accept": "application/xml"}
@@ -266,6 +269,7 @@ class SodaClient:
 
         return stocks
 
+    @lru_cache(maxsize=1000)
     def get_dataset(self, dataset_uuid: str) -> Dict[str, Any]:
         """Fetch and parse a specific dataset by UUID"""
         try:

@@ -1,0 +1,16 @@
+{
+    "nodes": [
+        {
+            "name": "ProBas",
+            "url": "https://data.probas.umweltbundesamt.de"
+        },
+        {
+            "name": "LCA Database",
+            "url": "https://data.lcadatabase.com"
+        },
+        {
+            "name": "Tiangong",
+            "url": "https://lcadata.tiangong.world"
+        }
+    ]
+} 

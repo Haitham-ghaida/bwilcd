@@ -1,0 +1,26 @@
+{
+  "template": "https://github.com/brightway-lca/cookiecutter-brightwaylib",
+  "commit": "3800223c2e3382571af880837c632373fa83d5a7",
+  "checkout": null,
+  "context": {
+    "cookiecutter": {
+      "full_name": "haitham ghaida",
+      "email": "haitham.ghaida@outlook.com",
+      "github_username": "haitham-ghaida",
+      "project_name": "bwilcd",
+      "package_name": "bwilcd",
+      "project_short_description": "view and download ilcd dbs",
+      "version": "0.0.1",
+      "use_pytest": "y",
+      "open_source_license": "MIT",
+      "copyright_year": "2025",
+      "code_of_conduct_contact": "haitham.ghaida@outlook.com",
+      "_copy_without_render": [
+        ".github/*"
+      ],
+      "_template": "https://github.com/brightway-lca/cookiecutter-brightwaylib",
+      "_commit": "3800223c2e3382571af880837c632373fa83d5a7"
+    }
+  },
+  "directory": null
+}

@@ -1,0 +1,110 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bwilcd"
+authors = [
+  { name="haitham ghaida", email="haitham.ghaida@outlook.com" }
+]
+maintainers = [
+  { name="haitham ghaida", email="haitham.ghaida@outlook.com" }
+]
+description = "view and download ilcd dbs"
+readme = "README.md"
+dynamic = ["version"]
+# Add here all kinds of additional classifiers as defined under
+# https://pypi.org/classifiers/
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Topic :: Scientific/Engineering"
+]
+requires-python = ">=3.9"
+dependencies = [
+    "click",
+    "requests",
+    "tqdm",
+    "prompt_toolkit",
+    "tabulate"
+]
+
+[project.urls]
+source = "https://github.com/haitham-ghaida/bwilcd"
+homepage = "https://github.com/haitham-ghaida/bwilcd"
+tracker = "https://github.com/haitham-ghaida/bwilcd/issues"
+
+[project.optional-dependencies]
+# Getting recursive dependencies to work is a pain, this
+# seems to work, at least for now
+testing = [
+    "bwilcd",
+    "pytest",
+    "pytest-cov",
+    "python-coveralls"
+]
+dev = [
+    "build",
+    "pre-commit",
+    "pylint",
+    "pytest",
+    "pytest-cov",
+    "pytest-randomly",
+    "setuptools",
+]
+
+[project.scripts]
+bwilcd = "bwilcd.cli:main"
+
+[tool.setuptools]
+license-files = ["LICENSE"]
+include-package-data = true
+packages = ["bwilcd"]
+
+[tool.setuptools.dynamic]
+version = {attr = "bwilcd.__version__"}
+
+[tool.setuptools.package-data]
+bwilcd = ["nodes.json"]
+
+[tool.pytest.ini_options]
+addopts = "--cov bwilcd --cov-report term-missing --verbose"
+norecursedirs = [
+    "dist",
+    "build",
+    ".tox"
+]
+testpaths = ["tests/*.py"]
+
+[tool.flake8]
+# Some sane defaults for the code style checker flake8
+max_line_length = 88
+extend_ignore = ["E203", "W503"]
+# ^  Black-compatible
+#    E203 and W503 have edge cases handled by black
+exclude = [
+    ".tox",
+    "build",
+    "dist",
+    ".eggs",
+    "docs/conf.py",
+]
+
+[tool.black]
+line-length = 88
+
+[tool.isort]
+profile = "black"
+line_length = 88
+multi_line_output = 3
+include_trailing_comma = true
+force_grid_wrap = 0
+use_parentheses = true
+ensure_newline_before_comments = true

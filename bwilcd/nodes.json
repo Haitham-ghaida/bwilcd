@@ -11,6 +11,34 @@
         {
             "name": "Tiangong",
             "url": "https://lcadata.tiangong.world"
+        },
+        {
+            "name": "ecosystem LCI Database",
+            "url": "https://weee-lci.ecosystem.eco"
+        },
+        {
+            "name": "Cycleco",
+            "url": "https://node.cycleco.eu/node"
+        },
+        {
+            "name": "European Founded Research Projects",
+            "url": "https://eplca.jrc.ec.europa.eu/EUFRP"
+        },
+        {
+            "name": "Plastics Europe Public LCI Database",
+            "url": "https://plasticseurope.lca-data.com"
+        },
+        {
+            "name": "Small Data Providers Database",
+            "url": "https://eplca.jrc.ec.europa.eu/SDPDB"
+        },
+        {
+            "name": "Sphera Node on the Life Cycle Data Network",
+            "url": "https://lcdn.thinkstep.com"
+        },
+        {
+            "name": "ecoinvent - Data on the Production of Chemicals",
+            "url": "https://ecoinvent.lca-data.com"
         }
     ]
-} 
+}

@@ -7,6 +7,8 @@ import urllib3
 import warnings
 from dataclasses import dataclass
 from functools import lru_cache
+from pathlib import Path
+from .utils import get_downloads_dir, format_size
 
 # Suppress only the specific InsecureRequestWarning
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -15,6 +17,7 @@ urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 @dataclass
 class Exchange:
     """Represents an exchange (input/output flow) in a process dataset"""
+
     flow_name: str
     direction: str
     amount: float
@@ -64,7 +67,9 @@ class SodaClient:
             return False
 
     @lru_cache(maxsize=1000)
-    def search_datasets(self, stock_uuid: str, query: str = "", page: int = 0, size: int = 20) -> List[Dict]:
+    def search_datasets(
+        self, stock_uuid: str, query: str = "", page: int = 0, size: int = 20
+    ) -> List[Dict]:
         """Search for datasets in a stock"""
         # Calculate start index
         start_index = page * size
@@ -88,14 +93,16 @@ class SodaClient:
 
             if response.status_code == 200:
                 root = ET.fromstring(response.content)
-                
+
                 # Store total size if available
-                total_size = root.get("{http://www.ilcd-network.org/ILCD/ServiceAPI}totalSize")
+                total_size = root.get(
+                    "{http://www.ilcd-network.org/ILCD/ServiceAPI}totalSize"
+                )
                 if total_size:
                     self.total_size = int(total_size)
 
                 datasets = []
-                
+
                 # Try different XML paths and namespaces
                 namespaces = {
                     "sapi": "http://www.ilcd-network.org/ILCD/ServiceAPI",
@@ -111,7 +118,7 @@ class SodaClient:
                     ".//{http://www.ilcd-network.org/ILCD/ServiceAPI}processDataSet",
                     ".//{http://www.ilcd-network.org/ILCD/ServiceAPI/Process}process",
                     ".//processDataSet",
-                    ".//process"
+                    ".//process",
                 ]
 
                 for path in paths:
@@ -124,16 +131,16 @@ class SodaClient:
                             uuid_paths = [
                                 ".//{http://www.ilcd-network.org/ILCD/ServiceAPI}uuid",
                                 ".//{http://www.ilcd-network.org/ILCD/ServiceAPI/Process}uuid",
-                                ".//uuid"
+                                ".//uuid",
                             ]
-                            
+
                             # Try different paths for name
                             name_paths = [
                                 ".//{http://www.ilcd-network.org/ILCD/ServiceAPI}baseName",
                                 ".//{http://www.ilcd-network.org/ILCD/ServiceAPI}name",
                                 ".//{http://www.ilcd-network.org/ILCD/ServiceAPI/Process}name",
                                 ".//baseName",
-                                ".//name"
+                                ".//name",
                             ]
 
                             # Get UUID
@@ -166,12 +173,21 @@ class SodaClient:
             return []
         except requests.RequestException:
             return []
+
     def download_stock(
         self,
         stock_uuid: str,
         progress_callback: Optional[Callable[[int, int], None]] = None,
-    ) -> bytes:
-        """Download a data stock"""
+    ) -> Path:
+        """Download a data stock and save it to the downloads directory
+
+        Args:
+            stock_uuid: UUID of the stock to download
+            progress_callback: Optional callback for progress updates
+
+        Returns:
+            Path to the downloaded file
+        """
         try:
             response = self.session.get(
                 f"{self.base_url}/datastocks/{stock_uuid}/export",
@@ -184,16 +200,19 @@ class SodaClient:
             # Get total size for progress bar
             total_size = int(response.headers.get("content-length", 0))
             current_size = 0
-            content = bytearray()
 
-            for chunk in response.iter_content(chunk_size=8192):
-                if chunk:
-                    content.extend(chunk)
-                    current_size += len(chunk)
-                    if progress_callback:
-                        progress_callback(current_size, total_size)
+            # Create downloads directory and prepare file path
+            download_path = get_downloads_dir() / f"{stock_uuid}.zip"
 
-            return bytes(content)
+            with open(download_path, "wb") as f:
+                for chunk in response.iter_content(chunk_size=8192):
+                    if chunk:
+                        f.write(chunk)
+                        current_size += len(chunk)
+                        if progress_callback:
+                            progress_callback(current_size, total_size)
+
+            return download_path
 
         except requests.exceptions.RequestException as e:
             raise Exception(f"Failed to download stock: {str(e)}")
@@ -278,9 +297,9 @@ class SodaClient:
                 url,
                 headers={
                     "Accept": "application/xml",
-                    "Content-Type": "application/xml"
+                    "Content-Type": "application/xml",
                 },
-                verify=False
+                verify=False,
             )
             response.raise_for_status()
             return self._parse_dataset(response.content)
@@ -290,55 +309,92 @@ class SodaClient:
     def _parse_dataset(self, xml_content: bytes) -> Dict[str, Any]:
         """Parse the XML dataset response into a structured dictionary"""
         root = ET.fromstring(xml_content)
-        
+
         # Define XML namespaces
         ns = {
-            '': 'http://lca.jrc.it/ILCD/Process',  # Default namespace
-            'common': 'http://lca.jrc.it/ILCD/Common',
-            'xml': 'http://www.w3.org/XML/1998/namespace'
+            "": "http://lca.jrc.it/ILCD/Process",  # Default namespace
+            "common": "http://lca.jrc.it/ILCD/Common",
+            "xml": "http://www.w3.org/XML/1998/namespace",
         }
-        
+
         # Get reference flow ID
-        ref_flow_id = root.find('.//quantitativeReference/referenceToReferenceFlow', ns)
+        ref_flow_id = root.find(".//quantitativeReference/referenceToReferenceFlow", ns)
         ref_flow_id = int(ref_flow_id.text) if ref_flow_id is not None else None
-        
+
         # Extract basic information
         info = {
-            'name': self._get_text(root, './/processInformation/dataSetInformation/name/baseName[@xml:lang="de"]', ns),
-            'uuid': self._get_text(root, './/processInformation/dataSetInformation/common:UUID', ns),
-            'description': self._get_text(root, './/processInformation/dataSetInformation/common:generalComment[@xml:lang="de"]', ns),
-            'exchanges': self._parse_exchanges(root, ns, ref_flow_id),
-            'reference_year': self._get_text(root, './/processInformation/time/common:referenceYear', ns),
-            'geography': root.find('.//processInformation/geography/locationOfOperationSupplyOrProduction', ns).get('location') if root.find('.//processInformation/geography/locationOfOperationSupplyOrProduction', ns) is not None else None,
-            'technology': self._get_text(root, './/processInformation/technology/technologyDescriptionAndIncludedProcesses[@xml:lang="de"]', ns),
-            'functional_unit': self._get_text(root, './/quantitativeReference/functionalUnitOrOther[@xml:lang="de"]', ns),
-            'has_reference_flow': ref_flow_id is not None
+            "name": self._get_text(
+                root,
+                './/processInformation/dataSetInformation/name/baseName[@xml:lang="de"]',
+                ns,
+            ),
+            "uuid": self._get_text(
+                root, ".//processInformation/dataSetInformation/common:UUID", ns
+            ),
+            "description": self._get_text(
+                root,
+                './/processInformation/dataSetInformation/common:generalComment[@xml:lang="de"]',
+                ns,
+            ),
+            "exchanges": self._parse_exchanges(root, ns, ref_flow_id),
+            "reference_year": self._get_text(
+                root, ".//processInformation/time/common:referenceYear", ns
+            ),
+            "geography": (
+                root.find(
+                    ".//processInformation/geography/locationOfOperationSupplyOrProduction",
+                    ns,
+                ).get("location")
+                if root.find(
+                    ".//processInformation/geography/locationOfOperationSupplyOrProduction",
+                    ns,
+                )
+                is not None
+                else None
+            ),
+            "technology": self._get_text(
+                root,
+                './/processInformation/technology/technologyDescriptionAndIncludedProcesses[@xml:lang="de"]',
+                ns,
+            ),
+            "functional_unit": self._get_text(
+                root,
+                './/quantitativeReference/functionalUnitOrOther[@xml:lang="de"]',
+                ns,
+            ),
+            "has_reference_flow": ref_flow_id is not None,
         }
-        
+
         return info
 
-    def _parse_exchanges(self, root: ET.Element, ns: Dict, ref_flow_id: Optional[int] = None) -> List[Exchange]:
+    def _parse_exchanges(
+        self, root: ET.Element, ns: Dict, ref_flow_id: Optional[int] = None
+    ) -> List[Exchange]:
         """Parse exchanges data from XML"""
         exchanges = []
-        
-        for exchange in root.findall('.//exchanges/exchange', ns):
-            internal_id = int(exchange.get('dataSetInternalID'))
-            flow = exchange.find('.//referenceToFlowDataSet/common:shortDescription', ns)
-            direction = exchange.find('exchangeDirection', ns)
-            amount = exchange.find('meanAmount', ns)
-            
+
+        for exchange in root.findall(".//exchanges/exchange", ns):
+            internal_id = int(exchange.get("dataSetInternalID"))
+            flow = exchange.find(
+                ".//referenceToFlowDataSet/common:shortDescription", ns
+            )
+            direction = exchange.find("exchangeDirection", ns)
+            amount = exchange.find("meanAmount", ns)
+
             if None in (flow, direction, amount):
                 continue
-                
+
             is_ref = internal_id == ref_flow_id if ref_flow_id else False
-            
-            exchanges.append(Exchange(
-                flow_name=flow.text,
-                direction=direction.text,
-                amount=float(amount.text),
-                is_reference_flow=is_ref
-            ))
-        
+
+            exchanges.append(
+                Exchange(
+                    flow_name=flow.text,
+                    direction=direction.text,
+                    amount=float(amount.text),
+                    is_reference_flow=is_ref,
+                )
+            )
+
         return exchanges
 
     def _get_text(self, element: ET.Element, xpath: str, ns: Dict) -> Optional[str]:
@@ -352,56 +408,70 @@ class SodaClient:
     def format_dataset_info(self, dataset_info: Dict[str, Any]) -> str:
         """Format dataset information into a readable string"""
         output = []
-        
+
         # Basic information
         output.append(f"\nDataset: {dataset_info.get('name', 'N/A')}")
         output.append(f"UUID: {dataset_info.get('uuid', 'N/A')}")
         output.append(f"Reference Year: {dataset_info.get('reference_year', 'N/A')}")
         output.append(f"Geography: {dataset_info.get('geography', 'N/A')}")
         output.append(f"Functional Unit: {dataset_info.get('functional_unit', 'N/A')}")
-        
-        if not dataset_info.get('has_reference_flow'):
+
+        if not dataset_info.get("has_reference_flow"):
             output.append("\nWarning: No reference flow defined for this dataset")
-        
+
         # Description
-        if dataset_info.get('description'):
+        if dataset_info.get("description"):
             output.append("\nDescription:")
             output.append("-" * 40)
-            output.append(dataset_info['description'][:500] + "..." if len(dataset_info['description']) > 500 else dataset_info['description'])
-        
+            output.append(
+                dataset_info["description"][:500] + "..."
+                if len(dataset_info["description"]) > 500
+                else dataset_info["description"]
+            )
+
         # Technology description
-        if dataset_info.get('technology'):
+        if dataset_info.get("technology"):
             output.append("\nTechnology Description:")
             output.append("-" * 40)
-            output.append(dataset_info['technology'][:500] + "..." if len(dataset_info['technology']) > 500 else dataset_info['technology'])
-        
+            output.append(
+                dataset_info["technology"][:500] + "..."
+                if len(dataset_info["technology"]) > 500
+                else dataset_info["technology"]
+            )
+
         # Format exchanges
-        if dataset_info.get('exchanges'):
+        if dataset_info.get("exchanges"):
             # Group exchanges by direction
-            inputs = [e for e in dataset_info['exchanges'] if e.direction == 'Input']
-            outputs = [e for e in dataset_info['exchanges'] if e.direction == 'Output']
-            
+            inputs = [e for e in dataset_info["exchanges"] if e.direction == "Input"]
+            outputs = [e for e in dataset_info["exchanges"] if e.direction == "Output"]
+
             # Format inputs
             if inputs:
                 output.append("\nInputs:")
                 output.append("-" * 40)
-                for exchange in sorted(inputs, key=lambda x: abs(x.amount), reverse=True):
+                for exchange in sorted(
+                    inputs, key=lambda x: abs(x.amount), reverse=True
+                ):
                     output.append(f"  {exchange.flow_name}: {exchange.amount:g}")
-                    
-            # Format outputs 
+
+            # Format outputs
             if outputs:
                 output.append("\nOutputs:")
                 output.append("-" * 40)
                 ref_found = False
-                for exchange in sorted(outputs, key=lambda x: abs(x.amount), reverse=True):
+                for exchange in sorted(
+                    outputs, key=lambda x: abs(x.amount), reverse=True
+                ):
                     prefix = "* " if exchange.is_reference_flow else "  "
                     output.append(f"{prefix}{exchange.flow_name}: {exchange.amount:g}")
                     if exchange.is_reference_flow:
                         ref_found = True
-                
-                if not ref_found and dataset_info.get('has_reference_flow'):
-                    output.append("\nWarning: Reference flow ID found but no matching exchange")
-        
+
+                if not ref_found and dataset_info.get("has_reference_flow"):
+                    output.append(
+                        "\nWarning: Reference flow ID found but no matching exchange"
+                    )
+
         return "\n".join(output)
 
     def view_dataset(self, dataset_uuid: str) -> None:

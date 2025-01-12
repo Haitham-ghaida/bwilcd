@@ -113,10 +113,20 @@ class Display:
         )
         if show_commands:
             click.echo("\n" + click.style("Commands:", fg="cyan", bold=True))
-            click.echo("  " + click.style("number", fg="green") + "         - Connect to a node")
-            click.echo("  " + click.style("url <custom_url>", fg="green") + " - Connect to custom URL")
+            click.echo(
+                "  "
+                + click.style("number", fg="green")
+                + "         - Connect to a node"
+            )
+            click.echo(
+                "  "
+                + click.style("url <custom_url>", fg="green")
+                + " - Connect to custom URL"
+            )
             click.echo("  " + click.style("quit", fg="red") + "          - Exit")
-            click.echo("  " + click.style("help", fg="yellow") + "          - Show help")
+            click.echo(
+                "  " + click.style("help", fg="yellow") + "          - Show help"
+            )
 
     def show_stocks(self, stocks: List[Dict], show_commands: bool = True):
         """Show available stocks"""
@@ -145,21 +155,39 @@ class Display:
     def show_stock_commands(self):
         """Show commands for stock view"""
         click.echo("\n" + click.style("Commands:", fg="cyan", bold=True))
-        click.echo("  " + click.style("number", fg="green") + "         - Select a stock to browse")
-        click.echo("  " + click.style("back", fg="yellow") + "          - Go back to nodes")
-        click.echo("  " + click.style("refresh", fg="yellow") + "       - Refresh stocks")
+        click.echo(
+            "  "
+            + click.style("number", fg="green")
+            + "         - Select a stock to browse"
+        )
+        click.echo(
+            "  " + click.style("back", fg="yellow") + "          - Go back to nodes"
+        )
+        click.echo(
+            "  " + click.style("refresh", fg="yellow") + "       - Refresh stocks"
+        )
         click.echo("  " + click.style("quit", fg="red") + "          - Exit")
         click.echo("  " + click.style("help", fg="yellow") + "          - Show help")
 
     def show_dataset_commands(self):
         """Show commands for dataset view"""
         click.echo("\n" + click.style("Commands:", fg="cyan", bold=True))
-        click.echo("  " + click.style("number", fg="green") + "         - View dataset details")
-        click.echo("  " + click.style("search <query>", fg="green") + " - Search datasets")
-        click.echo("  " + click.style("list", fg="green") + "           - List all datasets")
+        click.echo(
+            "  " + click.style("number", fg="green") + "         - View dataset details"
+        )
+        click.echo(
+            "  " + click.style("search <query>", fg="green") + " - Search datasets"
+        )
+        click.echo(
+            "  " + click.style("list", fg="green") + "           - List all datasets"
+        )
         click.echo("  " + click.style("next", fg="yellow") + "          - Next page")
-        click.echo("  " + click.style("prev", fg="yellow") + "          - Previous page")
-        click.echo("  " + click.style("back", fg="yellow") + "          - Go back to stocks")
+        click.echo(
+            "  " + click.style("prev", fg="yellow") + "          - Previous page"
+        )
+        click.echo(
+            "  " + click.style("back", fg="yellow") + "          - Go back to stocks"
+        )
         click.echo("  " + click.style("quit", fg="red") + "          - Exit")
         click.echo("  " + click.style("help", fg="yellow") + "          - Show help")
 
@@ -244,7 +272,7 @@ class Display:
 
             if show_commands:
                 self.show_dataset_commands()
-                
+
             return datasets
         except Exception as e:
             click.echo(
@@ -270,40 +298,62 @@ class Display:
         """Display detailed information about a dataset"""
         click.echo("\n" + click.style("Dataset Information:", fg="cyan", bold=True))
         click.echo("=" * 80)
-        
+
         # Basic information
-        click.echo(click.style("Name: ", fg="green", bold=True) + 
-                  click.style(dataset_info.get('name', 'N/A'), fg="white"))
-        click.echo(click.style("UUID: ", fg="green", bold=True) + 
-                  click.style(dataset_info.get('uuid', 'N/A'), fg="bright_black"))
-        click.echo(click.style("Reference Year: ", fg="green", bold=True) + 
-                  click.style(str(dataset_info.get('reference_year', 'N/A')), fg="white"))
-        click.echo(click.style("Geography: ", fg="green", bold=True) + 
-                  click.style(dataset_info.get('geography', 'N/A'), fg="blue"))
-        
+        click.echo(
+            click.style("Name: ", fg="green", bold=True)
+            + click.style(dataset_info.get("name", "N/A"), fg="white")
+        )
+        click.echo(
+            click.style("UUID: ", fg="green", bold=True)
+            + click.style(dataset_info.get("uuid", "N/A"), fg="bright_black")
+        )
+        click.echo(
+            click.style("Reference Year: ", fg="green", bold=True)
+            + click.style(str(dataset_info.get("reference_year", "N/A")), fg="white")
+        )
+        click.echo(
+            click.style("Geography: ", fg="green", bold=True)
+            + click.style(dataset_info.get("geography", "N/A"), fg="blue")
+        )
+
         # Description
-        if dataset_info.get('description'):
+        if dataset_info.get("description"):
             click.echo("\n" + click.style("Description:", fg="yellow", bold=True))
             click.echo("-" * 80)
-            click.echo(click.style(dataset_info['description'][:500] + 
-                      ("..." if len(dataset_info['description']) > 500 else ""), fg="white"))
-        
+            click.echo(
+                click.style(
+                    dataset_info["description"][:500]
+                    + ("..." if len(dataset_info["description"]) > 500 else ""),
+                    fg="white",
+                )
+            )
+
         # Technology description
-        if dataset_info.get('technology'):
-            click.echo("\n" + click.style("Technology Description:", fg="yellow", bold=True))
+        if dataset_info.get("technology"):
+            click.echo(
+                "\n" + click.style("Technology Description:", fg="yellow", bold=True)
+            )
             click.echo("-" * 80)
-            click.echo(click.style(dataset_info['technology'][:500] + 
-                      ("..." if len(dataset_info['technology']) > 500 else ""), fg="white"))
-        
+            click.echo(
+                click.style(
+                    dataset_info["technology"][:500]
+                    + ("..." if len(dataset_info["technology"]) > 500 else ""),
+                    fg="white",
+                )
+            )
+
         # Exchanges
-        if dataset_info.get('exchanges'):
+        if dataset_info.get("exchanges"):
             # Group exchanges by direction
-            inputs = [e for e in dataset_info['exchanges'] if e.direction == 'Input']
-            outputs = [e for e in dataset_info['exchanges'] if e.direction == 'Output']
-            
+            inputs = [e for e in dataset_info["exchanges"] if e.direction == "Input"]
+            outputs = [e for e in dataset_info["exchanges"] if e.direction == "Output"]
+
             # Find reference flow
-            ref_flow = next((e for e in dataset_info['exchanges'] if e.is_reference_flow), None)
-            
+            ref_flow = next(
+                (e for e in dataset_info["exchanges"] if e.is_reference_flow), None
+            )
+
             # Format inputs
             if inputs:
                 click.echo("\n" + click.style("Inputs:", fg="blue", bold=True))
@@ -313,10 +363,14 @@ class Display:
                 for e in sorted(inputs, key=lambda x: abs(x.amount), reverse=True):
                     flow_name = e.flow_name
                     if e == ref_flow:
-                        flow_name = click.style(f"⭐ {flow_name} (Reference Flow)", fg="yellow", bold=True)
+                        flow_name = click.style(
+                            f"⭐ {flow_name} (Reference Flow)", fg="yellow", bold=True
+                        )
                     table_data.append([flow_name, f"{e.amount:g}"])
-                click.echo(tabulate(table_data, headers=headers, tablefmt="rounded_grid"))
-                
+                click.echo(
+                    tabulate(table_data, headers=headers, tablefmt="rounded_grid")
+                )
+
             # Format outputs
             if outputs:
                 click.echo("\n" + click.style("Outputs:", fg="magenta", bold=True))
@@ -326,6 +380,10 @@ class Display:
                 for e in sorted(outputs, key=lambda x: abs(x.amount), reverse=True):
                     flow_name = e.flow_name
                     if e == ref_flow:
-                        flow_name = click.style(f"⭐ {flow_name} (Reference Flow)", fg="yellow", bold=True)
+                        flow_name = click.style(
+                            f"⭐ {flow_name} (Reference Flow)", fg="yellow", bold=True
+                        )
                     table_data.append([flow_name, f"{e.amount:g}"])
-                click.echo(tabulate(table_data, headers=headers, tablefmt="rounded_grid"))
+                click.echo(
+                    tabulate(table_data, headers=headers, tablefmt="rounded_grid")
+                )

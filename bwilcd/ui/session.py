@@ -24,6 +24,7 @@ class Session:
     def start(self):
         """Start the interactive session"""
         # Show initial help
+        self.display.show_header_intro()
         self.display.show_nodes(show_commands=True)
 
         while True:

@@ -8,4 +8,8 @@ class Exchange:
     flow_name: str
     direction: str
     amount: float
+    uuid: str
+    type: str = ""
+    category: str = ""
+    unit: str = ""
     is_reference_flow: bool = False

@@ -1,11 +1,13 @@
 import click
 from tabulate import tabulate
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Any
 from ..client import SodaClient
 import json
 import os
 import pkg_resources
 from prompt_toolkit.styles import Style
+
+DEFAULT_NODE = {"name": "ProBas", "url": "https://data.probas.umweltbundesamt.de"}
 
 
 class Display:
@@ -32,9 +34,7 @@ class Display:
                     )
                 )
                 # Return default nodes if file not found
-                return [
-                    {"name": "ProBas", "url": "https://data.probas.umweltbundesamt.de"}
-                ]
+                return [DEFAULT_NODE]
 
             with open(json_path, "r", encoding="utf-8") as f:
                 try:
@@ -47,12 +47,7 @@ class Display:
                                 bold=True,
                             )
                         )
-                        return [
-                            {
-                                "name": "ProBas",
-                                "url": "https://data.probas.umweltbundesamt.de",
-                            }
-                        ]
+                        return [DEFAULT_NODE]
                     return data["nodes"]
                 except json.JSONDecodeError as e:
                     click.echo(
@@ -62,12 +57,7 @@ class Display:
                             bold=True,
                         )
                     )
-                    return [
-                        {
-                            "name": "ProBas",
-                            "url": "https://data.probas.umweltbundesamt.de",
-                        }
-                    ]
+                    return [DEFAULT_NODE]
         except Exception as e:
             click.echo(
                 click.style(
@@ -76,20 +66,67 @@ class Display:
                     bold=True,
                 )
             )
-            return [{"name": "ProBas", "url": "https://data.probas.umweltbundesamt.de"}]
+            return [DEFAULT_NODE]
 
     def clear_screen(self):
         """Clear the terminal screen"""
         click.clear()
 
+    def show_header_intro(self):
+        """Show the application header"""
+        header = """
+                                               .                                                               
+                                      .::                     :.                                       
+                                      :.:.:                 :.:.                                       
+                                    .: .:..::             .:.:.:                                       
+                                    : . . .  :          ::  .: .:                                      
+                                   ..   .:.   ..       : .  .:.  :                                     
+                                   ..    ::    .:     :    . :   .:                                    
+                                   .      :   ....   .:. ....:  .  :                  .::.:            
+                                   ::.....:.  . ..   .....  :      :     .::.  .     .   :             
+                                   ...    :      :   ..     :.    .:   .: ..     .  . ..:              
+                                    :     ::.    .   ..     :     .: :.   .   .   ..   ..              
+           :-::... ...::            ..    ..    ..   ..    ::.    : ::        . .  .  ..               
+             :. ::.    . :           ::. .:.   ::    ....  :    ..: . .      .:.    ..:                
+              :. ..:. .   :.           .:... :.       .:  .:.   .: ..  . ..    .   . :.                
+               :.   .:.    :              ::            :. : . ..  ..  .  ..    .   :.                 
+                .     :.    :       .:::::-::.            ::.::    .:.   .     .   :                   
+                 :......:.  :   :---:     ::::::-:.        :..:.       :..       ::                    
+                   :  .  : : .:--:      .. .::...:. .:::.. :::::::::     :::::::                       
+                    .:...::.:=-:        :.. ..  ..:       ...:.  .. ..                                 
+                          :-=-.   ..   .:.   :     :      . . ..      .:                               
+                         :-=-::: . ...:..   .:.   ..:     .. . .:.  .. .:.                             
+                        .--=  ..:  ..  :. .. .:..   :     :: ... :     . :                             
+                        --=: ... .:.  .::.     :    :     ..     ..:  .   :                            
+                        ...  ...   ::. .  .:.  .:. .:      ..      .::.    :                           
+                              .:.  ..:.:    .:. .:.:        .:.      .:.   .:                          
+                                 ::..:.:       .:.::          :.        :.  :                          
+                                    .:::.         :.            .::.  .  :..:                          
+                                                                    ...:..:::                          
+           =%####%*.         -%=            :#*         ::                                             
+           =%:   :%#                        :#*        :%*                                             
+           =%:   :%%. .%#*%= :%-  .+%%%**%. :##*%%%* .*%%%%- %*   *#:  -%-  -#%%%*:  %*.  -%=          
+           =%*++*%*.  :%#:   -%-  +%:  .*%. :#%.  =%=  :%*   +#: :%%=  **: -%=  .**. =%-  *#:          
+           =%=:::*%+  :%*    -%- .#*.   *%  :#*   =%+  :%*   .%= *#=%: %=    .-==#*. :** :%=           
+           =%:    *%- :%*    -%- .#*.   *%. :#*   =%+  :%*    +*=%-:*==#:  :##=::**.  =%:**:           
+           =%:    #%: :%*    -%-  *#:   *%. :#*   =%+  :%*    :%%#  =%%*   +%-  .**.  :*#%=            
+           =%####%%-  :%*    -%-  :#%**#%%  :#*   =%+   %%*:  .*%:  :#%:   :%%**%%#.   =%%.            
+                                     .  *%.               .                   .        -%=             
+                                  .=-::=%*                                           .:**              
+                                   :=++=:                                            =*=     
+            ╔═══════════════════════════════════════════════════════════════════════════╗
+            ║                       ILCD Network Interactive Client                     ║
+            ╚═══════════════════════════════════════════════════════════════════════════╝
+"""
+        click.echo(click.style(header, fg="cyan", bold=True))
+
     def show_header(self):
         """Show the application header"""
         header = """
-╔═══════════════════════════════════════════════════════════════════════════╗
-║                       Brightway ILCD Network Interactive Client           ║
-╚═══════════════════════════════════════════════════════════════════════════╝
+            ╔═══════════════════════════════════════════════════════════════════════════╗
+            ║                       ILCD Network Interactive Client                     ║
+            ╚═══════════════════════════════════════════════════════════════════════════╝
 """
-        click.echo(click.style(header, fg="cyan", bold=True))
 
     def show_nodes(self, show_commands: bool = True):
         """Show available ILCD nodes"""
@@ -294,96 +331,68 @@ class Display:
             }
         )
 
-    def show_dataset_info(self, dataset_info: Dict):
-        """Display detailed information about a dataset"""
-        click.echo("\n" + click.style("Dataset Information:", fg="cyan", bold=True))
-        click.echo("=" * 80)
+    def show_separator(self):
+        """Show a styled separator line"""
+        click.secho("─" * 100, fg="blue")
 
-        # Basic information
-        click.echo(
-            click.style("Name: ", fg="green", bold=True)
-            + click.style(dataset_info.get("name", "N/A"), fg="white")
-        )
-        click.echo(
-            click.style("UUID: ", fg="green", bold=True)
-            + click.style(dataset_info.get("uuid", "N/A"), fg="bright_black")
-        )
-        click.echo(
-            click.style("Reference Year: ", fg="green", bold=True)
-            + click.style(str(dataset_info.get("reference_year", "N/A")), fg="white")
-        )
-        click.echo(
-            click.style("Geography: ", fg="green", bold=True)
-            + click.style(dataset_info.get("geography", "N/A"), fg="blue")
-        )
+    def show_dataset_info(self, dataset_info: Dict[str, Any]):
+        """Display detailed dataset information"""
+        click.secho("\n📊 Dataset Details", fg="cyan", bold=True)
 
-        # Description
-        if dataset_info.get("description"):
-            click.echo("\n" + click.style("Description:", fg="yellow", bold=True))
-            click.echo("-" * 80)
-            click.echo(
-                click.style(
-                    dataset_info["description"][:500]
-                    + ("..." if len(dataset_info["description"]) > 500 else ""),
-                    fg="white",
+        # Basic Info
+        headers = [
+            click.style("Property", fg="magenta", bold=True),
+            click.style("Value", fg="magenta", bold=True),
+        ]
+
+        basic_info = [
+            ["Name", dataset_info.get("name", "N/A")],
+            ["UUID", dataset_info.get("uuid", "N/A")],
+            ["Reference Year", dataset_info.get("reference_year", "N/A")],
+            ["Geography", dataset_info.get("geography", "N/A")],
+            ["Functional Unit", dataset_info.get("functional_unit", "N/A")],
+        ]
+
+        basic_info = [
+            [click.style(row[0], fg="blue"), click.style(row[1], fg="yellow")]
+            for row in basic_info
+        ]
+
+        print(tabulate(basic_info, headers=headers, tablefmt="grid"))
+
+        if "exchanges" in dataset_info and dataset_info["exchanges"]:
+            click.secho("\n📊 Exchanges:", fg="cyan", bold=True)
+
+            exchange_headers = [
+                click.style(h, fg="magenta", bold=True)
+                for h in [
+                    "Flow Name",
+                    "Direction",
+                    "Amount",
+                    "Type",
+                    "Category",
+                    "Unit",
+                ]
+            ]
+
+            exchange_rows = []
+            for ex in dataset_info["exchanges"]:
+                # Add star and highlight reference flows
+                flow_name = (
+                    f"⭐ {ex.flow_name}" if ex.is_reference_flow else ex.flow_name
                 )
-            )
+                style_color = "bright_yellow" if ex.is_reference_flow else "cyan"
 
-        # Technology description
-        if dataset_info.get("technology"):
-            click.echo(
-                "\n" + click.style("Technology Description:", fg="yellow", bold=True)
-            )
-            click.echo("-" * 80)
-            click.echo(
-                click.style(
-                    dataset_info["technology"][:500]
-                    + ("..." if len(dataset_info["technology"]) > 500 else ""),
-                    fg="white",
-                )
-            )
+                row = [
+                    click.style(flow_name, fg=style_color, bold=ex.is_reference_flow),
+                    click.style(
+                        str(ex.direction), fg=style_color, bold=ex.is_reference_flow
+                    ),
+                    click.style(str(ex.amount), fg="yellow"),
+                    click.style(str(ex.unit), fg="magenta"),
+                    click.style(str(ex.type), fg="blue"),
+                    click.style(str(ex.category), fg="green"),
+                ]
+                exchange_rows.append(row)
 
-        # Exchanges
-        if dataset_info.get("exchanges"):
-            # Group exchanges by direction
-            inputs = [e for e in dataset_info["exchanges"] if e.direction == "Input"]
-            outputs = [e for e in dataset_info["exchanges"] if e.direction == "Output"]
-
-            # Find reference flow
-            ref_flow = next(
-                (e for e in dataset_info["exchanges"] if e.is_reference_flow), None
-            )
-
-            # Format inputs
-            if inputs:
-                click.echo("\n" + click.style("Inputs:", fg="blue", bold=True))
-                click.echo("-" * 80)
-                headers = ["Flow", "Amount"]
-                table_data = []
-                for e in sorted(inputs, key=lambda x: abs(x.amount), reverse=True):
-                    flow_name = e.flow_name
-                    if e == ref_flow:
-                        flow_name = click.style(
-                            f"⭐ {flow_name} (Reference Flow)", fg="yellow", bold=True
-                        )
-                    table_data.append([flow_name, f"{e.amount:g}"])
-                click.echo(
-                    tabulate(table_data, headers=headers, tablefmt="rounded_grid")
-                )
-
-            # Format outputs
-            if outputs:
-                click.echo("\n" + click.style("Outputs:", fg="magenta", bold=True))
-                click.echo("-" * 80)
-                headers = ["Flow", "Amount"]
-                table_data = []
-                for e in sorted(outputs, key=lambda x: abs(x.amount), reverse=True):
-                    flow_name = e.flow_name
-                    if e == ref_flow:
-                        flow_name = click.style(
-                            f"⭐ {flow_name} (Reference Flow)", fg="yellow", bold=True
-                        )
-                    table_data.append([flow_name, f"{e.amount:g}"])
-                click.echo(
-                    tabulate(table_data, headers=headers, tablefmt="rounded_grid")
-                )
+            print(tabulate(exchange_rows, headers=exchange_headers, tablefmt="grid"))

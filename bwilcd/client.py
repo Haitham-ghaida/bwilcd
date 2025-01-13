@@ -1,12 +1,12 @@
 import requests
-import xml.etree.ElementTree as ET
 from typing import List, Dict, Optional, Callable, Any
 import urllib3
 from functools import lru_cache
 from pathlib import Path
 from .utils import get_downloads_dir
-from .models import Exchange
 from .xml_parser import ILCDXMLParser
+from .formatter import ILCDFormatter
+from .models import Exchange
 
 # Suppress only the specific InsecureRequestWarning
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -148,7 +148,35 @@ class SodaClient:
 
     @lru_cache(maxsize=1000)
     def get_dataset(self, dataset_uuid: str) -> Dict[str, Any]:
-        """Fetch and parse a specific dataset by UUID"""
+        """Fetch and parse dataset with its exchanges"""
+        dataset_info = self._fetch_dataset_info(dataset_uuid)
+        flow_info = self._fetch_dataset_exchanges(dataset_uuid)
+
+        # Create lookup dict using attribute access
+        flow_lookup = {flow.uuid: flow for flow in flow_info}
+
+        enriched_exchanges = []
+        for exchange in dataset_info["exchanges"]:
+            if exchange.uuid in flow_lookup:
+                flow = flow_lookup[exchange.uuid]
+                # Use attribute access instead of dict access
+                enriched = Exchange(
+                    flow_name=exchange.flow_name,
+                    direction=exchange.direction,
+                    amount=exchange.amount,
+                    uuid=exchange.uuid,
+                    type=flow.type,
+                    category=flow.category,
+                    unit=flow.unit,
+                    is_reference_flow=exchange.is_reference_flow,
+                )
+                enriched_exchanges.append(enriched)
+
+        dataset_info["exchanges"] = enriched_exchanges
+        return dataset_info
+
+    def _fetch_dataset_info(self, dataset_uuid: str) -> Dict[str, Any]:
+        """Fetch dataset information without caching"""
         try:
             url = f"{self.base_url}/processes/{dataset_uuid}/?format=xml&view=overview"
             response = self.session.get(
@@ -164,80 +192,31 @@ class SodaClient:
         except requests.RequestException as e:
             raise Exception(f"Failed to fetch dataset: {str(e)}")
 
+    @lru_cache(maxsize=1000)
+    def _fetch_dataset_exchanges(self, dataset_uuid: str) -> List[Dict[str, Any]]:
+        try:
+            url = f"{self.base_url}/processes/{dataset_uuid}/exchanges/?format=xml&view=overview"
+            response = self.session.get(
+                url,
+                headers={
+                    "Accept": "application/xml",
+                    "Content-Type": "application/xml",
+                },
+                verify=False,
+            )
+            response.raise_for_status()
+            return ILCDXMLParser.parse_flow_info(response.content)
+        except requests.RequestException as e:
+            raise Exception(f"Failed to fetch dataset exchanges: {str(e)}")
+
     def format_dataset_info(self, dataset_info: Dict[str, Any]) -> str:
         """Format dataset information into a readable string"""
-        output = []
-
-        # Basic information
-        output.append(f"\nDataset: {dataset_info.get('name', 'N/A')}")
-        output.append(f"UUID: {dataset_info.get('uuid', 'N/A')}")
-        output.append(f"Reference Year: {dataset_info.get('reference_year', 'N/A')}")
-        output.append(f"Geography: {dataset_info.get('geography', 'N/A')}")
-        output.append(f"Functional Unit: {dataset_info.get('functional_unit', 'N/A')}")
-
-        if not dataset_info.get("has_reference_flow"):
-            output.append("\nWarning: No reference flow defined for this dataset")
-
-        # Description
-        if dataset_info.get("description"):
-            output.append("\nDescription:")
-            output.append("-" * 40)
-            output.append(
-                dataset_info["description"][:500] + "..."
-                if len(dataset_info["description"]) > 500
-                else dataset_info["description"]
-            )
-
-        # Technology description
-        if dataset_info.get("technology"):
-            output.append("\nTechnology Description:")
-            output.append("-" * 40)
-            output.append(
-                dataset_info["technology"][:500] + "..."
-                if len(dataset_info["technology"]) > 500
-                else dataset_info["technology"]
-            )
-
-        # Format exchanges
-        if dataset_info.get("exchanges"):
-            # Group exchanges by direction
-            inputs = [e for e in dataset_info["exchanges"] if e.direction == "Input"]
-            outputs = [e for e in dataset_info["exchanges"] if e.direction == "Output"]
-
-            # Format inputs
-            if inputs:
-                output.append("\nInputs:")
-                output.append("-" * 40)
-                for exchange in sorted(
-                    inputs, key=lambda x: abs(x.amount), reverse=True
-                ):
-                    output.append(f"  {exchange.flow_name}: {exchange.amount:g}")
-
-            # Format outputs
-            if outputs:
-                output.append("\nOutputs:")
-                output.append("-" * 40)
-                ref_found = False
-                for exchange in sorted(
-                    outputs, key=lambda x: abs(x.amount), reverse=True
-                ):
-                    prefix = "* " if exchange.is_reference_flow else "  "
-                    output.append(f"{prefix}{exchange.flow_name}: {exchange.amount:g}")
-                    if exchange.is_reference_flow:
-                        ref_found = True
-
-                if not ref_found and dataset_info.get("has_reference_flow"):
-                    output.append(
-                        "\nWarning: Reference flow ID found but no matching exchange"
-                    )
-
-        return "\n".join(output)
+        return ILCDFormatter.format_dataset_info(dataset_info)
 
     def view_dataset(self, dataset_uuid: str) -> None:
         """Fetch and display formatted information about a dataset"""
         try:
             dataset_info = self.get_dataset(dataset_uuid)
             formatted_info = self.format_dataset_info(dataset_info)
-            print(formatted_info)
         except Exception as e:
             print(f"Error viewing dataset: {str(e)}")

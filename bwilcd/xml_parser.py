@@ -2,6 +2,7 @@ import xml.etree.ElementTree as ET
 from typing import List, Dict, Optional, Any
 from .models import Exchange
 
+
 class ILCDXMLParser:
     """Parser for ILCD XML responses"""
 
@@ -53,9 +54,9 @@ class ILCDXMLParser:
         return datasets
 
     @staticmethod
-    def parse_dataset(xml_content: bytes) -> Dict[str, Any]:
+    def parse_dataset(xml_content_process: bytes) -> Dict[str, Any]:
         """Parse XML content for a specific dataset"""
-        root = ET.fromstring(xml_content)
+        root = ET.fromstring(xml_content_process)
         ns = {
             "": "http://lca.jrc.it/ILCD/Process",
             "common": "http://lca.jrc.it/ILCD/Common",
@@ -102,7 +103,11 @@ class ILCDXMLParser:
         """Try to parse stocks with given namespace"""
         stocks = []
         try:
-            elements = root.findall(".//ns:dataStock", ns) if ns else root.findall(".//dataStock")
+            elements = (
+                root.findall(".//ns:dataStock", ns)
+                if ns
+                else root.findall(".//dataStock")
+            )
             for stock in elements:
                 stock_data = {}
                 if ns:
@@ -131,7 +136,7 @@ class ILCDXMLParser:
     def _parse_process_element(process: ET.Element) -> Dict:
         """Parse a process element from search results"""
         dataset = {"dataset_type": "Process"}
-        
+
         uuid_paths = [
             ".//{http://www.ilcd-network.org/ILCD/ServiceAPI}uuid",
             ".//{http://www.ilcd-network.org/ILCD/ServiceAPI/Process}uuid",
@@ -161,13 +166,21 @@ class ILCDXMLParser:
 
     @staticmethod
     def _parse_exchanges(
-        root: ET.Element, ns: Dict, ref_flow_id: Optional[int] = None
+        root: ET.Element,
+        ns: Dict,
+        ref_flow_id: Optional[int] = None,
     ) -> List[Exchange]:
         """Parse exchanges data from XML"""
         exchanges = []
         for exchange in root.findall(".//exchanges/exchange", ns):
             internal_id = int(exchange.get("dataSetInternalID"))
-            flow = exchange.find(".//referenceToFlowDataSet/common:shortDescription", ns)
+            flow_dataset = exchange.find(".//referenceToFlowDataSet", ns)
+            flow_uuid = (
+                flow_dataset.get("refObjectId") if flow_dataset is not None else None
+            )
+            flow = exchange.find(
+                ".//referenceToFlowDataSet/common:shortDescription", ns
+            )
             direction = exchange.find("exchangeDirection", ns)
             amount = exchange.find("meanAmount", ns)
 
@@ -181,9 +194,42 @@ class ILCDXMLParser:
                     direction=direction.text,
                     amount=float(amount.text),
                     is_reference_flow=is_ref,
+                    uuid=flow_uuid,
                 )
             )
         return exchanges
+
+    @staticmethod
+    def parse_flow_info(xml_content: bytes) -> List[Exchange]:
+        """Parse flow information from exchanges response"""
+        root = ET.fromstring(xml_content)
+        ns = {
+            "sapi": "http://www.ilcd-network.org/ILCD/ServiceAPI",
+            "f": "http://www.ilcd-network.org/ILCD/ServiceAPI/Flow",
+        }
+
+        flows = []
+        for flow in root.findall(".//f:flow", ns):
+            uuid = flow.find("sapi:uuid", ns).text
+            name = flow.find("sapi:name", ns).text
+            flow_type = flow.find("f:type", ns).text
+            categories = flow.findall(".//sapi:category", ns)
+            category = next((c.text for c in categories if c.get("level") == "2"), None)
+            unit = flow.find(".//f:defaultUnit", ns).text
+
+            flows.append(
+                Exchange(
+                    flow_name=name,
+                    direction="",  # Will be populated from dataset info
+                    amount=0.0,  # Will be populated from dataset info
+                    uuid=uuid,
+                    type=flow_type,
+                    category=category,
+                    unit=unit,
+                )
+            )
+
+        return flows
 
     @staticmethod
     def _get_text(element: ET.Element, xpath: str, ns: Dict) -> Optional[str]:
